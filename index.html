@@ -65,16 +65,13 @@
     </div>
 
     <script>
-        // URL Base SheetDB
         const BASE_URL = "https://sheetdb.io/api/v1/fxk3g44m9012x";
-
         let sessionSopir = "";
         let fotoBase64Data = "";
 
-        // Login menembak langsung ke tab User
         async function prosesLogin() {
             const userIn = document.getElementById("username").value.toLowerCase().trim();
-            const passIn = document.getElementById("password").value.trim();
+            const passIn = document.getElementById("password").value.toString().trim();
             const btn = document.getElementById("btn-login");
 
             if(!userIn || !passIn) return alert("Isi username & password dulu Fer!");
@@ -83,16 +80,24 @@
             btn.innerText = "Memeriksa...";
 
             try {
-                // Modifikasi penambahan parameter khusus nama sheet
                 const respon = await fetch(`${BASE_URL}?sheet=User`);
                 const dataUser = await respon.json();
 
                 let ketemu = false;
                 for(let u of dataUser) {
-                    if(u.Username && u.Username.toLowerCase().trim() === userIn && u.Password && u.Password.toString().trim() === passIn) {
-                        ketemu = true;
-                        sessionSopir = u.Username;
-                        break;
+                    // Trik cerdas: cari key apa saja yang mengandung kata 'user' dan 'pass' tanpa peduli huruf besar kecil kolomnya
+                    let keyUser = Object.keys(u).find(k => k.toLowerCase().includes("user"));
+                    let keyPass = Object.keys(u).find(k => k.toLowerCase().includes("pass"));
+
+                    if (keyUser && keyPass) {
+                        let sheetUser = String(u[keyUser]).toLowerCase().trim();
+                        let sheetPass = String(u[keyPass]).trim();
+
+                        if(sheetUser === userIn && sheetPass === passIn) {
+                            ketemu = true;
+                            sessionSopir = u[keyUser];
+                            break;
+                        }
                     }
                 }
 
@@ -112,18 +117,21 @@
             }
         }
 
-        // Memuat opsi mobil langsung dari tab Mobil
         async function muatDaftarMobil() {
             const selectMobil = document.getElementById("mobil");
             try {
                 const respon = await fetch(`${BASE_URL}?sheet=Mobil`);
                 const dataMobil = await respon.json();
                 
+                // Kosongkan dulu opsi bawaan selain placeholder
+                selectMobil.innerHTML = '<option value="">-- Pilih Armada --</option>';
+                
                 dataMobil.forEach(m => {
-                    if(m["Daftar Mobil"]) {
+                    let keyMobil = Object.keys(m).find(k => k.toLowerCase().includes("mobil"));
+                    if(keyMobil && m[keyMobil]) {
                         let opt = document.createElement("option");
-                        opt.value = m["Daftar Mobil"];
-                        opt.innerText = m["Daftar Mobil"];
+                        opt.value = m[keyMobil];
+                        opt.innerText = m[keyMobil];
                         selectMobil.appendChild(opt);
                     }
                 });
@@ -180,7 +188,6 @@
             }
         }
 
-        // Mengirim laporan langsung ke tab Laporan
         async function kirimDataLaporan() {
             const helper = document.getElementById("helper").value.trim();
             const mobil = document.getElementById("mobil").value;
@@ -195,6 +202,7 @@
             const tglSkg = new Date();
             const formatTanggal = tglSkg.toLocaleDateString('id-ID') + ' ' + tglSkg.toLocaleTimeString('id-ID');
 
+            // Mengirim data fleksibel sesuai urutan kolom tab Laporan
             const payload = {
                 data: [
                     {
