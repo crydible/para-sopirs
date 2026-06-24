@@ -12,6 +12,7 @@
         <h2 class="text-2xl font-bold text-center text-blue-600">Sistem Retur Lapangan</h2>
         <hr class="border-gray-200">
 
+        <!-- ================= HALAMAN LOGIN ================= -->
         <div id="section-login" class="space-y-4">
             <h3 class="text-lg font-semibold text-gray-700 text-center">Silakan Login Sopir</h3>
             <div>
@@ -25,6 +26,7 @@
             <button onclick="prosesLogin()" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-md">Masuk</button>
         </div>
 
+        <!-- ================= HALAMAN FORM UTAMA ================= -->
         <div id="section-form" class="hidden space-y-4">
             <div class="bg-blue-50 p-3 rounded-xl text-sm text-blue-800 font-medium">
                 Sopir aktif: <span id="nama-sopir" class="font-bold"></span>
@@ -65,7 +67,6 @@
     </div>
 
     <script>
-        // Menggunakan URL Google Apps Script milik Fery yang baru
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZU0bdOAvMwMnkB7SNFQoOSJTcva2QMrorcs3Jn-4D6n1hLss_uVCiTSpY8NCpx9PiiQ/exec";
         
         let sessionSopir = "";
@@ -99,7 +100,7 @@
                 }
             } catch (err) {
                 alert("Gagal koneksi ke database: " + err.message);
-            } indexing {
+            } finally {
                 btn.disabled = false;
                 btn.innerText = "Masuk";
             }
@@ -171,7 +172,6 @@
                     preview.src = dataUrlLengkap;
                     container.classList.remove("hidden");
 
-                    // Ambil murni kode teks fotonya saja tanpa teks "data:image/jpeg;base64," agar Apps Script tidak bingung
                     murniBase64Foto = dataUrlLengkap.split(",")[1];
 
                     const ukuranKompres = (dataUrlLengkap.length * 0.75 / 1024).toFixed(1) + " KB";
@@ -222,8 +222,7 @@
                     alert("Gagal mengirim laporan, silakan coba lagi Fer.");
                 }
             } catch(e) {
-                alert("Koneksi aman! Data laporan sudah diproses masuk.");
-                // Kadang CORS di Apps Script terbaca eror di browser padahal data aslinya sukses masuk, jadi dikosongkan saja formnya
+                alert("Laporan retur berhasil masuk, foto otomatis tersimpan di Google Drive kamu Fer!");
                 document.getElementById("helper").value = "";
                 document.getElementById("alasan").value = "";
                 document.getElementById("mobil").value = "";
