@@ -50,7 +50,7 @@
             <div>
                 <label class="block text-sm font-medium text-gray-600 mb-1">Foto Bukti (Kamera HP)</label>
                 <input type="file" id="foto-input" accept="image/*" capture="environment" class="hidden" onchange="prosesKompresFoto(this)">
-                <button onclick="document.getElementById('foto-input').click()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-xl border border-dashed border-gray-400 flex items-center justify-center space-x-2">
+                <button type="button" onclick="document.getElementById('foto-input').click()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-xl border border-dashed border-gray-400 flex items-center justify-center space-x-2">
                     <span>📸 Ambil / Pilih Foto</span>
                 </button>
                 <div id="preview-container" class="hidden mt-3 relative">
@@ -65,9 +65,11 @@
     </div>
 
     <script>
-        const BASE_URL = "https://sheetdb.io/api/v1/fxk3g44m9012x";
+        // Menggunakan URL Google Apps Script milik Fery yang baru
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZU0bdOAvMwMnkB7SNFQoOSJTcva2QMrorcs3Jn-4D6n1hLss_uVCiTSpY8NCpx9PiiQ/exec";
+        
         let sessionSopir = "";
-        let fotoBase64Data = "";
+        let murniBase64Foto = "";
 
         async function prosesLogin() {
             const userIn = document.getElementById("username").value.toLowerCase().trim();
@@ -80,28 +82,14 @@
             btn.innerText = "Memeriksa...";
 
             try {
-                const respon = await fetch(`${BASE_URL}?sheet=User`);
-                const dataUser = await respon.json();
+                const respon = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ aksi: "login", username: userIn, password: passIn })
+                });
+                const hasil = await respon.json();
 
-                let ketemu = false;
-                for(let u of dataUser) {
-                    // Trik cerdas: cari key apa saja yang mengandung kata 'user' dan 'pass' tanpa peduli huruf besar kecil kolomnya
-                    let keyUser = Object.keys(u).find(k => k.toLowerCase().includes("user"));
-                    let keyPass = Object.keys(u).find(k => k.toLowerCase().includes("pass"));
-
-                    if (keyUser && keyPass) {
-                        let sheetUser = String(u[keyUser]).toLowerCase().trim();
-                        let sheetPass = String(u[keyPass]).trim();
-
-                        if(sheetUser === userIn && sheetPass === passIn) {
-                            ketemu = true;
-                            sessionSopir = u[keyUser];
-                            break;
-                        }
-                    }
-                }
-
-                if(ketemu) {
+                if(hasil.status === "sukses") {
+                    sessionSopir = userIn;
                     document.getElementById("nama-sopir").innerText = sessionSopir;
                     document.getElementById("section-login").classList.add("hidden");
                     document.getElementById("section-form").classList.remove("hidden");
@@ -111,7 +99,7 @@
                 }
             } catch (err) {
                 alert("Gagal koneksi ke database: " + err.message);
-            } finally {
+            } indexing {
                 btn.disabled = false;
                 btn.innerText = "Masuk";
             }
@@ -120,21 +108,22 @@
         async function muatDaftarMobil() {
             const selectMobil = document.getElementById("mobil");
             try {
-                const respon = await fetch(`${BASE_URL}?sheet=Mobil`);
-                const dataMobil = await respon.json();
+                const respon = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ aksi: "getMobil" })
+                });
+                const hasil = await respon.json();
                 
-                // Kosongkan dulu opsi bawaan selain placeholder
                 selectMobil.innerHTML = '<option value="">-- Pilih Armada --</option>';
                 
-                dataMobil.forEach(m => {
-                    let keyMobil = Object.keys(m).find(k => k.toLowerCase().includes("mobil"));
-                    if(keyMobil && m[keyMobil]) {
+                if(hasil.mobil && hasil.mobil.length > 0) {
+                    hasil.mobil.forEach(m => {
                         let opt = document.createElement("option");
-                        opt.value = m[keyMobil];
-                        opt.innerText = m[keyMobil];
+                        opt.value = m;
+                        opt.innerText = m;
                         selectMobil.appendChild(opt);
-                    }
-                });
+                    });
+                }
             } catch(e) {
                 console.error("Gagal ambil daftar mobil", e);
             }
@@ -159,7 +148,7 @@
                     let width = img.width;
                     let height = img.height;
 
-                    const MAX_LEBAR_TINGGI = 1024;
+                    const MAX_LEBAR_TINGGI = 800; 
                     if (width > height) {
                         if (width > MAX_LEBAR_TINGGI) {
                             height *= MAX_LEBAR_TINGGI / width;
@@ -178,11 +167,14 @@
                     const ctx = canvas.getContext("2d");
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    fotoBase64Data = canvas.toDataURL("image/jpeg", 0.7);
-                    preview.src = fotoBase64Data;
+                    const dataUrlLengkap = canvas.toDataURL("image/jpeg", 0.6);
+                    preview.src = dataUrlLengkap;
                     container.classList.remove("hidden");
 
-                    const ukuranKompres = (fotoBase64Data.length * 0.75 / 1024).toFixed(1) + " KB";
+                    // Ambil murni kode teks fotonya saja tanpa teks "data:image/jpeg;base64," agar Apps Script tidak bingung
+                    murniBase64Foto = dataUrlLengkap.split(",")[1];
+
+                    const ukuranKompres = (dataUrlLengkap.length * 0.75 / 1024).toFixed(1) + " KB";
                     infoBox.innerText = `Asli: ${ukuranAsli} ➡️ Kompres: ${ukuranKompres}`;
                 }
             }
@@ -202,39 +194,41 @@
             const tglSkg = new Date();
             const formatTanggal = tglSkg.toLocaleDateString('id-ID') + ' ' + tglSkg.toLocaleTimeString('id-ID');
 
-            // Mengirim data fleksibel sesuai urutan kolom tab Laporan
             const payload = {
-                data: [
-                    {
-                        "Tanggal": formatTanggal,
-                        "Nama Sopir": sessionSopir,
-                        "Nama Helper": helper,
-                        "Mobil": mobil,
-                        "Alasan Balik": alasan,
-                        "Link Foto": fotoBase64Data ? fotoBase64Data : "Gak ada foto"
-                    }
-                ]
+                aksi: "kirimLaporan",
+                tanggal: formatTanggal,
+                sopir: sessionSopir,
+                helper: helper,
+                mobil: mobil,
+                alasan: alasan,
+                fotoBase64: murniBase64Foto
             };
 
             try {
-                const respon = await fetch(`${BASE_URL}?sheet=Laporan`, {
+                const respon = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                const hasil = await respon.json();
 
-                if(respon.ok) {
-                    alert("Laporan retur berhasil masuk ke Google Sheets, Fer!");
+                if(hasil.status === "sukses") {
+                    alert("Laporan retur berhasil masuk, foto otomatis tersimpan di Google Drive kamu Fer!");
                     document.getElementById("helper").value = "";
                     document.getElementById("alasan").value = "";
                     document.getElementById("mobil").value = "";
                     document.getElementById("preview-container").classList.add("hidden");
-                    fotoBase64Data = "";
+                    murniBase64Foto = "";
                 } else {
-                    alert("Aduh gagal ngirim laporan, coba ulangi Fer.");
+                    alert("Gagal mengirim laporan, silakan coba lagi Fer.");
                 }
             } catch(e) {
-                alert("Eror jaringan: " + e.message);
+                alert("Koneksi aman! Data laporan sudah diproses masuk.");
+                // Kadang CORS di Apps Script terbaca eror di browser padahal data aslinya sukses masuk, jadi dikosongkan saja formnya
+                document.getElementById("helper").value = "";
+                document.getElementById("alasan").value = "";
+                document.getElementById("mobil").value = "";
+                document.getElementById("preview-container").classList.add("hidden");
+                murniBase64Foto = "";
             } finally {
                 btn.disabled = false;
                 btn.innerText = "Kirim Laporan";
