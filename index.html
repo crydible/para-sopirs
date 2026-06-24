@@ -65,13 +65,13 @@
     </div>
 
     <script>
-        // Konfigurasi Link SheetDB punya Fery
-        const API_URL = "https://sheetdb.io/api/v1/lf95r2y4h30pf";
+        // URL Base SheetDB
+        const BASE_URL = "https://sheetdb.io/api/v1/fxk3g44m9012x";
 
         let sessionSopir = "";
         let fotoBase64Data = "";
 
-        // Fungsi Login dengan memeriksa tab "User" di SheetDB
+        // Login menembak langsung ke tab User
         async function prosesLogin() {
             const userIn = document.getElementById("username").value.toLowerCase().trim();
             const passIn = document.getElementById("password").value.trim();
@@ -83,13 +83,13 @@
             btn.innerText = "Memeriksa...";
 
             try {
-                // Membaca data dari tab User via SheetDB
-                const respon = await fetch(`${API_URL}?sheet=User`);
+                // Modifikasi penambahan parameter khusus nama sheet
+                const respon = await fetch(`${BASE_URL}?sheet=User`);
                 const dataUser = await respon.json();
 
                 let ketemu = false;
                 for(let u of dataUser) {
-                    if(u.Username.toLowerCase().trim() === userIn && u.Password.toString().trim() === passIn) {
+                    if(u.Username && u.Username.toLowerCase().trim() === userIn && u.Password && u.Password.toString().trim() === passIn) {
                         ketemu = true;
                         sessionSopir = u.Username;
                         break;
@@ -102,7 +102,7 @@
                     document.getElementById("section-form").classList.remove("hidden");
                     await muatDaftarMobil();
                 } else {
-                    alert("Username atau password salah, coba cek lagi Fer!");
+                    alert("Username atau password salah Fer!");
                 }
             } catch (err) {
                 alert("Gagal koneksi ke database: " + err.message);
@@ -112,11 +112,11 @@
             }
         }
 
-        // Fungsi load opsi mobil dari tab "Mobil"
+        // Memuat opsi mobil langsung dari tab Mobil
         async function muatDaftarMobil() {
             const selectMobil = document.getElementById("mobil");
             try {
-                const respon = await fetch(`${API_URL}?sheet=Mobil`);
+                const respon = await fetch(`${BASE_URL}?sheet=Mobil`);
                 const dataMobil = await respon.json();
                 
                 dataMobil.forEach(m => {
@@ -132,7 +132,6 @@
             }
         }
 
-        // Inti Fitur Kompres Otomatis via HTML5 Canvas
         function prosesKompresFoto(input) {
             const file = input.files[0];
             if(!file) return;
@@ -152,7 +151,6 @@
                     let width = img.width;
                     let height = img.height;
 
-                    // Batasi resolusi maksimal lebar/tinggi 1024 piksel biar ga bengkak
                     const MAX_LEBAR_TINGGI = 1024;
                     if (width > height) {
                         if (width > MAX_LEBAR_TINGGI) {
@@ -169,25 +167,20 @@
                     canvas.width = width;
                     canvas.height = height;
 
-                    // Gambar ulang foto ke dalam canvas
                     const ctx = canvas.getContext("2d");
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Kompres kualitas gambar ke 0.7 (70%)
                     fotoBase64Data = canvas.toDataURL("image/jpeg", 0.7);
-
-                    // Tampilkan preview di halaman web
                     preview.src = fotoBase64Data;
                     container.classList.remove("hidden");
 
-                    // Hitung estimasi ukuran setelah dikompresi
                     const ukuranKompres = (fotoBase64Data.length * 0.75 / 1024).toFixed(1) + " KB";
-                    infoBox.innerText = `Asli: ${ukuranAsli} ➡️ Dikompres: ${ukuranKompres}`;
+                    infoBox.innerText = `Asli: ${ukuranAsli} ➡️ Kompres: ${ukuranKompres}`;
                 }
             }
         }
 
-        // Fungsi kirim data ke tab "Laporan" SheetDB
+        // Mengirim laporan langsung ke tab Laporan
         async function kirimDataLaporan() {
             const helper = document.getElementById("helper").value.trim();
             const mobil = document.getElementById("mobil").value;
@@ -202,7 +195,6 @@
             const tglSkg = new Date();
             const formatTanggal = tglSkg.toLocaleDateString('id-ID') + ' ' + tglSkg.toLocaleTimeString('id-ID');
 
-            // Format data sesuai judul kolom di tab Laporan kamu Fer
             const payload = {
                 data: [
                     {
@@ -217,7 +209,7 @@
             };
 
             try {
-                const respon = await fetch(`${API_URL}?sheet=Laporan`, {
+                const respon = await fetch(`${BASE_URL}?sheet=Laporan`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -225,7 +217,6 @@
 
                 if(respon.ok) {
                     alert("Laporan retur berhasil masuk ke Google Sheets, Fer!");
-                    // Reset inputan form
                     document.getElementById("helper").value = "";
                     document.getElementById("alasan").value = "";
                     document.getElementById("mobil").value = "";
