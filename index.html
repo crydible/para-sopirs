@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Retur Sopir</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-6">
+        <h2 class="text-2xl font-bold text-center text-blue-600">Sistem Retur Lapangan</h2>
+        <hr class="border-gray-200">
+
+        <div id="section-login" class="space-y-4">
+            <h3 class="text-lg font-semibold text-gray-700 text-center">Silakan Login Sopir</h3>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Username</label>
+                <input type="text" id="username" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Masukkan username...">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Password</label>
+                <input type="password" id="password" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Masukkan password...">
+            </div>
+            <button onclick="prosesLogin()" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-md">Masuk</button>
+        </div>
+
+        <div id="section-form" class="hidden space-y-4">
+            <div class="bg-blue-50 p-3 rounded-xl text-sm text-blue-800 font-medium">
+                Sopir aktif: <span id="nama-sopir" class="font-bold"></span>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Nama Helper</label>
+                <input type="text" id="helper" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ketik nama helper hari ini...">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Pilih Mobil</label>
+                <select id="mobil" class="w-full px-4 py-2 border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Pilih Armada --</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Alasan Balik / Retur</label>
+                <textarea id="alasan" rows="3" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tulis alasan detail..."></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Foto Bukti (Kamera HP)</label>
+                <input type="file" id="foto-input" accept="image/*" capture="environment" class="hidden" onchange="prosesKompresFoto(this)">
+                <button onclick="document.getElementById('foto-input').click()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-xl border border-dashed border-gray-400 flex items-center justify-center space-x-2">
+                    <span>📸 Ambil / Pilih Foto</span>
+                </button>
+                <div id="preview-container" class="hidden mt-3 relative">
+                    <img id="preview-foto" src="" class="w-full h-48 object-cover rounded-xl border shadow-inner">
+                    <div id="info-kompres" class="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded"></div>
+                </div>
+            </div>
+
+            <button onclick="kirimDataLaporan()" id="btn-kirim" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-md">Kirim Laporan</button>
+        </div>
+
+    </div>
+
+    <script>
+        // Konfigurasi Link SheetDB punya Fery
+        const API_URL = "https://sheetdb.io/api/v1/lf95r2y4h30pf";
+
+        let sessionSopir = "";
+        let fotoBase64Data = "";
+
+        // Fungsi Login dengan memeriksa tab "User" di SheetDB
+        async function prosesLogin() {
+            const userIn = document.getElementById("username").value.toLowerCase().trim();
+            const passIn = document.getElementById("password").value.trim();
+            const btn = document.getElementById("btn-login");
+
+            if(!userIn || !passIn) return alert("Isi username & password dulu Fer!");
+
+            btn.disabled = true;
+            btn.innerText = "Memeriksa...";
+
+            try {
+                // Membaca data dari tab User via SheetDB
+                const respon = await fetch(`${API_URL}?sheet=User`);
+                const dataUser = await respon.json();
+
+                let ketemu = false;
+                for(let u of dataUser) {
+                    if(u.Username.toLowerCase().trim() === userIn && u.Password.toString().trim() === passIn) {
+                        ketemu = true;
+                        sessionSopir = u.Username;
+                        break;
+                    }
+                }
+
+                if(ketemu) {
+                    document.getElementById("nama-sopir").innerText = sessionSopir;
+                    document.getElementById("section-login").classList.add("hidden");
+                    document.getElementById("section-form").classList.remove("hidden");
+                    await muatDaftarMobil();
+                } else {
+                    alert("Username atau password salah, coba cek lagi Fer!");
+                }
+            } catch (err) {
+                alert("Gagal koneksi ke database: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Masuk";
+            }
+        }
+
+        // Fungsi load opsi mobil dari tab "Mobil"
+        async function muatDaftarMobil() {
+            const selectMobil = document.getElementById("mobil");
+            try {
+                const respon = await fetch(`${API_URL}?sheet=Mobil`);
+                const dataMobil = await respon.json();
+                
+                dataMobil.forEach(m => {
+                    if(m["Daftar Mobil"]) {
+                        let opt = document.createElement("option");
+                        opt.value = m["Daftar Mobil"];
+                        opt.innerText = m["Daftar Mobil"];
+                        selectMobil.appendChild(opt);
+                    }
+                });
+            } catch(e) {
+                console.error("Gagal ambil daftar mobil", e);
+            }
+        }
+
+        // Inti Fitur Kompres Otomatis via HTML5 Canvas
+        function prosesKompresFoto(input) {
+            const file = input.files[0];
+            if(!file) return;
+
+            const infoBox = document.getElementById("info-kompres");
+            const preview = document.getElementById("preview-foto");
+            const container = document.getElementById("preview-container");
+            const ukuranAsli = (file.size / 1024).toFixed(1) + " KB";
+
+            const pembaca = new FileReader();
+            pembaca.readAsDataURL(file);
+            pembaca.onload = function(event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement("canvas");
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Batasi resolusi maksimal lebar/tinggi 1024 piksel biar ga bengkak
+                    const MAX_LEBAR_TINGGI = 1024;
+                    if (width > height) {
+                        if (width > MAX_LEBAR_TINGGI) {
+                            height *= MAX_LEBAR_TINGGI / width;
+                            width = MAX_LEBAR_TINGGI;
+                        }
+                    } else {
+                        if (height > MAX_LEBAR_TINGGI) {
+                            width *= MAX_LEBAR_TINGGI / height;
+                            height = MAX_LEBAR_TINGGI;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Gambar ulang foto ke dalam canvas
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Kompres kualitas gambar ke 0.7 (70%)
+                    fotoBase64Data = canvas.toDataURL("image/jpeg", 0.7);
+
+                    // Tampilkan preview di halaman web
+                    preview.src = fotoBase64Data;
+                    container.classList.remove("hidden");
+
+                    // Hitung estimasi ukuran setelah dikompresi
+                    const ukuranKompres = (fotoBase64Data.length * 0.75 / 1024).toFixed(1) + " KB";
+                    infoBox.innerText = `Asli: ${ukuranAsli} ➡️ Dikompres: ${ukuranKompres}`;
+                }
+            }
+        }
+
+        // Fungsi kirim data ke tab "Laporan" SheetDB
+        async function kirimDataLaporan() {
+            const helper = document.getElementById("helper").value.trim();
+            const mobil = document.getElementById("mobil").value;
+            const alasan = document.getElementById("alasan").value.trim();
+            const btn = document.getElementById("btn-kirim");
+
+            if(!helper || !mobil || !alasan) return alert("Pastiin semua kolom form diisi Fer!");
+
+            btn.disabled = true;
+            btn.innerText = "Mengirim Laporan...";
+
+            const tglSkg = new Date();
+            const formatTanggal = tglSkg.toLocaleDateString('id-ID') + ' ' + tglSkg.toLocaleTimeString('id-ID');
+
+            // Format data sesuai judul kolom di tab Laporan kamu Fer
+            const payload = {
+                data: [
+                    {
+                        "Tanggal": formatTanggal,
+                        "Nama Sopir": sessionSopir,
+                        "Nama Helper": helper,
+                        "Mobil": mobil,
+                        "Alasan Balik": alasan,
+                        "Link Foto": fotoBase64Data ? fotoBase64Data : "Gak ada foto"
+                    }
+                ]
+            };
+
+            try {
+                const respon = await fetch(`${API_URL}?sheet=Laporan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if(respon.ok) {
+                    alert("Laporan retur berhasil masuk ke Google Sheets, Fer!");
+                    // Reset inputan form
+                    document.getElementById("helper").value = "";
+                    document.getElementById("alasan").value = "";
+                    document.getElementById("mobil").value = "";
+                    document.getElementById("preview-container").classList.add("hidden");
+                    fotoBase64Data = "";
+                } else {
+                    alert("Aduh gagal ngirim laporan, coba ulangi Fer.");
+                }
+            } catch(e) {
+                alert("Eror jaringan: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Kirim Laporan";
+            }
+        }
+    </script>
+</body>
+</html>
